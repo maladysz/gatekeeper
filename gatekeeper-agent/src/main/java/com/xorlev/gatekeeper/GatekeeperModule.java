@@ -12,9 +12,13 @@ import com.google.inject.spi.TypeEncounter;
 import com.google.inject.spi.TypeListener;
 import com.xorlev.gatekeeper.discovery.AbstractClusterDiscovery;
 import com.xorlev.gatekeeper.handler.ConfigWriter;
+import com.xorlev.gatekeeper.handler.ConfigurationChanged;
+import com.xorlev.gatekeeper.handler.ConfigurationChangedEventHandler;
 import com.xorlev.gatekeeper.handler.PostConfigCallback;
 import com.xorlev.gatekeeper.nginx.NginxConfigWriter;
 import com.xorlev.gatekeeper.nginx.NginxReloaderCallback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.weakref.jmx.guice.ExportBinder;
 
 import javax.management.MBeanServer;
@@ -29,6 +33,7 @@ import java.util.List;
  * @author Michael Rose <michael@fullcontact.com>
  */
 public class GatekeeperModule extends AbstractModule {
+    private static final Logger log = LoggerFactory.getLogger(GatekeeperModule.class);
     @Override
     protected void configure() {
         // MBeanModule expects an MBeanServer to be bound
@@ -36,6 +41,7 @@ public class GatekeeperModule extends AbstractModule {
         ExportBinder exporter = ExportBinder.newExporter(binder());
 
         bind(ConfigWriter.class).to(NginxConfigWriter.class).asEagerSingleton();
+        bind(ConfigurationChanged.class).to(ConfigurationChangedEventHandler.class).asEagerSingleton();
 
         try {
             bind(AbstractClusterDiscovery.class).to((Class<? extends AbstractClusterDiscovery>) Class.forName(AppConfig.getString("discovery.impl"))).asEagerSingleton();
@@ -57,6 +63,7 @@ public class GatekeeperModule extends AbstractModule {
                          public <I> void hear(TypeLiteral<I> typeLiteral, TypeEncounter<I> typeEncounter) {
                              typeEncounter.register(new InjectionListener<I>() {
                                                         public void afterInjection(I i) {
+                                                            log.debug("Registering event listener: {}", i.getClass().getName());
                                                             eventBus.register(i);
                                                         }
                                                     });

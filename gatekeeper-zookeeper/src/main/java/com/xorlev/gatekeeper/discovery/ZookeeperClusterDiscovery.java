@@ -34,6 +34,20 @@ public class ZookeeperClusterDiscovery extends AbstractClusterDiscovery {
 
     private ExecutorService executorService = Executors.newCachedThreadPool();
 
+    private void setupZookeeper() {
+        String quorum = AppConfig.getString("zookeeper.quorum");
+        String namespace = AppConfig.getString("zookeeper.namespace");
+        log.info("Starting Zookeeper with connectString={}", quorum);
+        zk = CuratorFrameworkFactory.builder()
+                .connectString(quorum)
+                .connectionTimeoutMs(2000)
+                .retryPolicy(new BoundedExponentialBackoffRetry(100, 10000, 100))
+                .namespace(namespace.isEmpty() ? null : namespace)
+                .build();
+
+        zk.start();
+    }
+
     @Override
     public void startUp() throws Exception {
         setupZookeeper();
@@ -48,20 +62,6 @@ public class ZookeeperClusterDiscovery extends AbstractClusterDiscovery {
         executorService.shutdown();
         if (dsc != null) dsc.close();
         if (zk != null) zk.close();
-    }
-
-    private void setupZookeeper() {
-        String quorum = AppConfig.getString("zookeeper.quorum");
-        String namespace = AppConfig.getString("zookeeper.namespace");
-        log.info("Starting Zookeeper with connectString={}", quorum);
-        zk = CuratorFrameworkFactory.builder()
-                .connectString(quorum)
-                .connectionTimeoutMs(2000)
-                .retryPolicy(new BoundedExponentialBackoffRetry(100, 10000, 100))
-                .namespace(namespace.isEmpty() ? null : namespace)
-                .build();
-
-        zk.start();
     }
 
     private void setupServiceDiscovery() throws Exception {
@@ -97,7 +97,8 @@ public class ZookeeperClusterDiscovery extends AbstractClusterDiscovery {
             cache.addListener(new ServiceCacheListener() {
                 public void cacheChanged() {
                     log.info("Service {} modified, rewriting config", c);
-                    updateInstances(false);
+                    updateInstances(true);
+/*                    updateInstances(false);*/
                 }
 
                 public void stateChanged(CuratorFramework curatorFramework, ConnectionState connectionState) {
@@ -119,11 +120,6 @@ public class ZookeeperClusterDiscovery extends AbstractClusterDiscovery {
         for (ServiceCache<?> cache : serviceCacheList) {
             if (!cache.getInstances().isEmpty()) {
                 Cluster cluster = clusterFromInstances(cache.getInstances());
-
-                for (ServiceInstance<?> instance : cache.getInstances()) {
-                    cluster.getServers().add(convertInstance(instance));
-                }
-
                 log.info("Discovery: cluster=[{}] has {} instances, {}...",
                         cluster.getClusterName(), cluster.getServers().size(), Iterables.limit(cluster.getServers(), 5));
                 clusterList.add(cluster);

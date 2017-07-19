@@ -16,7 +16,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 
-public class ConfigurationChangedEventHandler {
+public class ConfigurationChangedEventHandler implements ConfigurationChanged {
     private static final Logger log = LoggerFactory.getLogger(ConfigurationChangedEventHandler.class);
     private final ConfigWriter configWriter;
     private final EventBus eventBus;
